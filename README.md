@@ -58,14 +58,28 @@ awk 'NF {printf "%s\\n", $0}' private.pem
 
 添加以下 6 个变量：
 
-变量名 说明 示例
-STU_ID 教务系统学号 123456
-STU_PWD 教务系统密码 123456!
-DING_TOKEN 钉钉机器人 access_token xxxxxxxx
-DING_SECRET 钉钉机器人加签密钥（未开启可留空） SECxxxxx
-RSA_PUBLIC_PEM 公钥（单行，含 \n） -----BEGIN PUBLIC KEY-----\nMIIBI...\n-----END PUBLIC KEY-----
-RSA_PRIVATE_PEM 私钥（单行，含 \n） -----BEGIN RSA PRIVATE KEY-----\nMIIEp...\n-----END RSA PRIVATE KEY-----
-
+· STU_ID: 教务系统学号
+    示例: 123456
+· STU_PWD: 教务系统密码
+    示例: 123456!
+· DING_TOKEN: 钉钉机器人 access_token
+    示例: xxxxxxxx
+· DING_SECRET: 钉钉机器人加签密钥（未开启可留空）
+    示例: SECxxxxx
+· RSA_PUBLIC_PEM: 公钥（单行，含 \n）
+    示例:
+  ```
+  -----BEGIN PUBLIC KEY-----
+  MIIBI...
+  -----END PUBLIC KEY-----
+  ```
+· RSA_PRIVATE_PEM: 私钥（单行，含 \n）
+    示例:
+  ```
+  -----BEGIN RSA PRIVATE KEY-----
+  MIIEp...
+  -----END RSA PRIVATE KEY-----
+  ```
 4️⃣ 启用 Actions 写权限
 
 进入：Settings → Actions → General
