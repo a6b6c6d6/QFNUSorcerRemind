@@ -27,10 +27,19 @@ def encrypt_dict(obj: dict) -> str:
     return base64.b64encode(blob).decode()
 
 def decrypt_dict(b64: str) -> dict:
-    blob = base64.b64decode(b64.encode())
-    rsa_key_size = RSA.import_key(PUBLIC_PEM).size_in_bytes()
-    rsa_part, nonce, tag, ct = blob.split(b"|", 3)
-    key = _rsa_decrypt(rsa_part)
-    cipher = AES.new(key, AES.MODE_GCM, nonce=nonce)
-    raw = cipher.decrypt_and_verify(ct, tag)
-    return json.loads(raw.decode())
+    try:
+        blob = base64.b64decode(b64.encode())
+        # 最少要有 4 段（rsa|nonce|tag|ct）
+        parts = blob.split(b"|")
+        if len(parts) != 4:
+            raise ValueError("Bad crypto format")
+        rsa_key_size = RSA.import_key(PUBLIC_PEM).size_in_bytes()
+        if len(parts[0]) != rsa_key_size:
+            raise ValueError("RSA part length mismatch")
+        key = _rsa_decrypt(parts[0])
+        cipher = AES.new(key, AES.MODE_GCM, nonce=parts[1])
+        raw = cipher.decrypt_and_verify(parts[3], parts[2])
+        return json.loads(raw.decode())
+    except Exception:
+        # 任何异常都视为“无旧数据”
+        return {}
