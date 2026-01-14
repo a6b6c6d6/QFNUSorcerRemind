@@ -1,45 +1,40 @@
-import json, base64, os, secrets
+import json, base64, secrets, os
 from Crypto.Cipher import AES
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
 
-# 从环境变量读 PEM
 PUBLIC_PEM  = os.getenv("RSA_PUBLIC_PEM").replace("\\n", "\n")
 PRIVATE_PEM = os.getenv("RSA_PRIVATE_PEM").replace("\\n", "\n")
 
-# --- 基础工具 ---
+# --------- 工具 ---------
 def _rsa_encrypt(plain: bytes) -> bytes:
-    pub = RSA.import_key(PUBLIC_PEM)
-    return PKCS1_OAEP.new(pub).encrypt(plain)
+    return PKCS1_OAEP.new(RSA.import_key(PUBLIC_PEM)).encrypt(plain)
 
 def _rsa_decrypt(cip: bytes) -> bytes:
-    priv = RSA.import_key(PRIVATE_PEM)
-    return PKCS1_OAEP.new(priv).decrypt(cip)
+    return PKCS1_OAEP.new(RSA.import_key(PRIVATE_PEM)).decrypt(cip)
 
-# --- 对外接口 ---
+# --------- 对外 ---------
 def encrypt_dict(obj: dict) -> str:
-    """返回 base64 字符串：rsa_enc_aes_key|nonce|tag|ciphertext"""
-    key = secrets.token_bytes(32)               # 256-bit AES key
+    """返回 JSON 字符串：{'k':rsa_enc_aes_key,'n':nonce,'t':tag,'d':ct}"""
+    key = secrets.token_bytes(32)
     cipher = AES.new(key, AES.MODE_GCM)
     ct, tag = cipher.encrypt_and_digest(
         json.dumps(obj, sort_keys=True, ensure_ascii=False).encode())
-    blob = _rsa_encrypt(key) + b"|" + cipher.nonce + b"|" + tag + b"|" + ct
-    return base64.b64encode(blob).decode()
+    return json.dumps({
+        "k": base64.b64encode(_rsa_encrypt(key)).decode(),
+        "n": base64.b64encode(cipher.nonce).decode(),
+        "t": base64.b64encode(tag).decode(),
+        "d": base64.b64encode(ct).decode()
+    }, ensure_ascii=False)
 
-def decrypt_dict(b64: str) -> dict:
+def decrypt_dict(s: str) -> dict:
+    """JSON 反序列化 → 解密 → 返回 dict；失败返回空 dict"""
     try:
-        blob = base64.b64decode(b64.encode())
-        # 最少要有 4 段（rsa|nonce|tag|ct）
-        parts = blob.split(b"|")
-        if len(parts) != 4:
-            raise ValueError("Bad crypto format")
-        rsa_key_size = RSA.import_key(PUBLIC_PEM).size_in_bytes()
-        if len(parts[0]) != rsa_key_size:
-            raise ValueError("RSA part length mismatch")
-        key = _rsa_decrypt(parts[0])
-        cipher = AES.new(key, AES.MODE_GCM, nonce=parts[1])
-        raw = cipher.decrypt_and_verify(parts[3], parts[2])
+        blob = json.loads(s)
+        key = _rsa_decrypt(base64.b64decode(blob["k"]))
+        cipher = AES.new(key, AES.MODE_GCM, nonce=base64.b64decode(blob["n"]))
+        raw = cipher.decrypt_and_verify(base64.b64decode(blob["d"]),
+                                        base64.b64decode(blob["t"]))
         return json.loads(raw.decode())
     except Exception:
-        # 任何异常都视为“无旧数据”
         return {}
