@@ -12,14 +12,20 @@ DATA_FILE = "data/encrypted.json"
 STU_ID    = os.getenv("STU_ID")
 STU_PWD   = os.getenv("STU_PWD")
 # --------------------------
-
-# ---------- 工具 ----------
 def load_last() -> Dict[str, Any]:
-    """读取上一次的加密成绩"""
+    """读取上一次的加密成绩；文件不存在返回空 dict"""
     if not os.path.exists(DATA_FILE):
         return {}
     with open(DATA_FILE, encoding="utf-8") as f:
-        return decrypt_dict(f.read())
+        content = f.read().strip()
+    # 如果文件是空的或格式明显不对，也返回空
+    if not content or "|" not in content:
+        return {}
+    try:
+        return decrypt_dict(content)
+    except Exception:
+        return {}
+
 
 def save_current(data: Dict[str, Any]) -> None:
     """加密并保存本次成绩"""
