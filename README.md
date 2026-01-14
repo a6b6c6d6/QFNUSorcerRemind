@@ -19,7 +19,7 @@
 
 🚀 快速上手（3 分钟部署）
 
-1️⃣ 获取项目代码
+1️⃣ 获取项目代并fork本项目
 
 ```bash
 git clone https://github.com/a6b6c6d6/QFNUSorcerRemind.git
@@ -61,7 +61,7 @@ awk 'NF {printf "%s\\n", $0}' private.pem
 变量名 说明 示例
 STU_ID 教务系统学号 123456
 STU_PWD 教务系统密码 123456!
-DING_TOKEN 钉钉机器人 access_token xxxxxxxx（只要后面ID的内容）
+DING_TOKEN 钉钉机器人 access_token xxxxxxxx
 DING_SECRET 钉钉机器人加签密钥（未开启可留空） SECxxxxx
 RSA_PUBLIC_PEM 公钥（单行，含 \n） -----BEGIN PUBLIC KEY-----\nMIIBI...\n-----END PUBLIC KEY-----
 RSA_PRIVATE_PEM 私钥（单行，含 \n） -----BEGIN RSA PRIVATE KEY-----\nMIIEp...\n-----END RSA PRIVATE KEY-----
