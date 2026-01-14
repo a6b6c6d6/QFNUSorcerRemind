@@ -1,9 +1,10 @@
+
 import os
 import json
 import time
 from typing import Dict, Any
 
-import jwxtdl        
+import jwxtdl
 from crypto_util import encrypt_dict, decrypt_dict
 from ding import send_md
 
@@ -12,6 +13,8 @@ DATA_FILE = "data/encrypted.json"
 STU_ID    = os.getenv("STU_ID")
 STU_PWD   = os.getenv("STU_PWD")
 # --------------------------
+
+# ---------- 工具 ----------
 def load_last() -> Dict[str, Any]:
     """读取上一次的加密成绩；文件不存在返回空 dict"""
     if not os.path.exists(DATA_FILE):
@@ -19,12 +22,9 @@ def load_last() -> Dict[str, Any]:
     with open(DATA_FILE, encoding="utf-8") as f:
         content = f.read().strip()
     # 如果文件是空的或格式明显不对，也返回空
-    if not content or "|" not in content:
+    if not content:
         return {}
-    try:
-        return decrypt_dict(content)
-    except Exception:
-        return {}
+    return decrypt_dict(content)
 
 
 def save_current(data: Dict[str, Any]) -> None:
@@ -33,8 +33,9 @@ def save_current(data: Dict[str, Any]) -> None:
     with open(DATA_FILE, "w", encoding="utf-8") as f:
         f.write(encrypt_dict(data))
 
+
 def diff_and_notify(old: Dict[str, Any], new: Dict[str, Any]) -> bool:
-    """对比新旧成绩，有变化则推送钉钉"""
+    """True=已推送；False=无变化"""
     old_map = {c["course_name"]: c for c in old.get("courses", [])}
     new_map = {c["course_name"]: c for c in new["courses"]}
 
@@ -45,6 +46,7 @@ def diff_and_notify(old: Dict[str, Any], new: Dict[str, Any]) -> bool:
     ]
     changed = False
     for name, info in new_map.items():
+        # 旧数据里没有这门课，或者成绩变了，才算新
         if name not in old_map or old_map[name]["grade"] != info["grade"]:
             changed = True
             lines.append(f"| {name} | {info['grade']} | {info['gpa']} |")
@@ -53,12 +55,10 @@ def diff_and_notify(old: Dict[str, Any], new: Dict[str, Any]) -> bool:
         send_md("成绩更新", "\n".join(lines))
     return changed
 
+
 # ---------- 业务 ----------
 def suan(html: str) -> Dict[str, Any]:
-    """
-    解析成绩页面 → 计算平均绩点
-    与你本地原逻辑完全一致，仅把文件路径改成变量
-    """
+    """解析成绩页面 → 计算平均绩点"""
     from lxml import html as lhtml
 
     tree = lhtml.fromstring(html)
@@ -86,11 +86,12 @@ def suan(html: str) -> Dict[str, Any]:
     avg_gpa = sum(c["gpa"] for c in courses) / len(courses) if courses else 0
     return {"courses": courses, "average_gpa": round(avg_gpa, 2)}
 
+
 def a() -> Dict[str, Any]:
     """主抓取逻辑"""
     url = "http://zhjw.qfnu.edu.cn/jsxsd/kscj/cjcx_list"
     payload = {
-        "kksj": "",  # 想抓全部可改成 ""
+        "kksj": "2025-2026-1",  # 想抓全部可改成 ""
         "kcxz": "",
         "kcmc": "",
         "xsfs": "all"
@@ -102,11 +103,14 @@ def a() -> Dict[str, Any]:
         return {}
     result = suan(resp.text)
 
-    # 增量对比
+    # 增量对比：先比较，有变化再落盘
     old = load_last()
-    save_current(result)
-    diff_and_notify(old, result)
+    if diff_and_notify(old, result):
+        save_current(result)
+    else:
+        print("暂无新成绩，不落盘。")
     return result
+
 
 # ---------- 入口 ----------
 if __name__ == "__main__":
