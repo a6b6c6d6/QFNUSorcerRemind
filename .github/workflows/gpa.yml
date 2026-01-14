@@ -1,0 +1,30 @@
+name: 成绩监控
+
+on:
+  schedule:
+    - cron: "0 * * * *"     # 1h运行一次
+  workflow_dispatch:
+
+jobs:
+  gpa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - run: python gpa.py
+        env:
+          STU_ID:        ${{ secrets.STU_ID }}
+          STU_PWD:       ${{ secrets.STU_PWD }}
+          DING_TOKEN:    ${{ secrets.DING_TOKEN }}
+          DING_SECRET:   ${{ secrets.DING_SECRET }}   # 没加签就留空
+          RSA_PUBLIC_PEM:  ${{ secrets.RSA_PUBLIC_PEM }}
+          RSA_PRIVATE_PEM: ${{ secrets.RSA_PRIVATE_PEM }}
+      - name: commit 加密结果
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/encrypted.json
+          git diff --cached --quiet || (git commit -m "chore: update grades" && git push)
