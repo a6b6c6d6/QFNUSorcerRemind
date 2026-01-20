@@ -2,8 +2,7 @@ name: 成绩监控
 
 on:
   schedule:
-    - cron: '0 0-15 * * *'
-    - cron: '0 16 * * *'
+    - cron: "0 * * * *"     # 1h运行一次
   workflow_dispatch:
 
 jobs:
@@ -33,6 +32,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git remote set-url origin https://x-access-token:\( {{ secrets.GITHUB_TOKEN }}@github.com/ \){{ github.repository }}
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
           git add data/encrypted.json
           git diff --cached --quiet || (git commit -m "chore: update grades" && git push)
