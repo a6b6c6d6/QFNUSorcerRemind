@@ -2,9 +2,7 @@ name: 成绩监控
 
 on:
   schedule:
-    # 北京时间 08:00 ~ 23:00 每小时一次（UTC 00:00 ~ 15:00）
     - cron: '0 0-15 * * *'
-    # 北京时间 00:00（UTC 16:00）
     - cron: '0 16 * * *'
   workflow_dispatch:
 
@@ -12,41 +10,29 @@ jobs:
   gpa:
     runs-on: ubuntu-latest
     steps:
-      - name: 检出代码
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}   # 用于后续 push 权限
+          token: ${{ secrets.GITHUB_TOKEN }}   # 显式授予写权限
 
-      - name: 设置 Python 环境
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v4
         with:
           python-version: "3.11"
 
-      - name: 安装依赖
-        run: |
-          python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then
-            pip install -r requirements.txt
-          fi
+      - run: pip install -r requirements.txt
 
-      - name: 运行成绩监控脚本
-        run: python gpa.py
+      - run: python gpa.py
         env:
           STU_ID:        ${{ secrets.STU_ID }}
           STU_PWD:       ${{ secrets.STU_PWD }}
           DING_TOKEN:    ${{ secrets.DING_TOKEN }}
-          DING_SECRET:   ${{ secrets.DING_SECRET }}     # 无加签可留空或删除此行
+          DING_SECRET:   ${{ secrets.DING_SECRET }}   # 没加签就留空
           RSA_PUBLIC_PEM:  ${{ secrets.RSA_PUBLIC_PEM }}
           RSA_PRIVATE_PEM: ${{ secrets.RSA_PRIVATE_PEM }}
 
-      - name: 提交加密后的成绩结果
+      - name: commit 加密结果
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          
-          git remote set-url origin https://x-access-token:\( {{ secrets.GITHUB_TOKEN }}@github.com/ \){{ github.repository }}.git
-          
+          git remote set-url origin https://x-access-token:\( {{ secrets.GITHUB_TOKEN }}@github.com/ \){{ github.repository }}
           git add data/encrypted.json
-          
-          # 只有文件有变化时才提交和推送
-          git diff --cached --quiet || (git commit -m "chore: update grades $(date +'%Y-%m-%d %H:%M:%S %Z')" && git push)
+          git diff --cached --quiet || (git commit -m "chore: update grades" && git push)
