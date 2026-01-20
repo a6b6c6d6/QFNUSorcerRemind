@@ -1,7 +1,5 @@
-
 import os
-import json
-import time
+from datetime import datetime
 from typing import Dict, Any
 
 import jwxtdl
@@ -14,17 +12,24 @@ STU_ID    = os.getenv("STU_ID")
 STU_PWD   = os.getenv("STU_PWD")
 # --------------------------
 
+
 # ---------- 工具 ----------
 def load_last() -> Dict[str, Any]:
-    """读取上一次的加密成绩；文件不存在返回空 dict"""
+    """读取上一次的加密成绩；文件不存在或解密失败返回空 dict"""
     if not os.path.exists(DATA_FILE):
         return {}
+
     with open(DATA_FILE, encoding="utf-8") as f:
         content = f.read().strip()
-    # 如果文件是空的或格式明显不对，也返回空
+
     if not content:
         return {}
-    return decrypt_dict(content)
+
+    try:
+        return decrypt_dict(content)
+    except Exception:
+        print("⚠️ 历史成绩解密失败，视为首次运行")
+        return {}
 
 
 def save_current(data: Dict[str, Any]) -> None:
@@ -35,25 +40,42 @@ def save_current(data: Dict[str, Any]) -> None:
 
 
 def diff_and_notify(old: Dict[str, Any], new: Dict[str, Any]) -> bool:
-    """True=已推送；False=无变化"""
+    """对比成绩并钉钉推送（炫酷 Markdown 版）"""
     old_map = {c["course_name"]: c for c in old.get("courses", [])}
-    new_map = {c["course_name"]: c for c in new["courses"]}
+
+    changed_blocks = []
+
+    for c in new["courses"]:
+        old_c = old_map.get(c["course_name"])
+        if not old_c or old_c["grade"] != c["grade"]:
+            block = "\n".join([
+                f"📘 **{c['course_name']}**",
+                f"🎯 成绩：**{c['grade']}**",
+                f"⭐ 绩点：**{c['gpa']}**",
+            ])
+            changed_blocks.append(block)
+
+    if not changed_blocks:
+        print("ℹ️ 暂无新成绩，不推送通知")
+        return False
+
+    now_time = datetime.now().strftime("%Y-%m-%d %H:%M")
 
     lines = [
-        "## 🎉 检测到新成绩",
-        "| 课程 | 成绩 | 绩点 |",
-        "| --- | --- | --- |"
+        "## 🚀 成绩更新提醒",
+        "",
+        "✨ **检测到新的成绩发布：**",
+        "",
+        *changed_blocks,
+        "",
+        "──────────────",
+        f"📊 **当前平均绩点：{new.get('average_gpa', 0)}**",
+        f"🕒 检测时间：{now_time}",
     ]
-    changed = False
-    for name, info in new_map.items():
-        # 旧数据里没有这门课，或者成绩变了，才算新
-        if name not in old_map or old_map[name]["grade"] != info["grade"]:
-            changed = True
-            lines.append(f"| {name} | {info['grade']} | {info['gpa']} |")
 
-    if changed:
-        send_md("成绩更新", "\n".join(lines))
-    return changed
+    send_md("成绩更新", "\n".join(lines))
+    print("✅ 已推送钉钉通知")
+    return True
 
 
 # ---------- 业务 ----------
@@ -71,6 +93,7 @@ def suan(html: str) -> Dict[str, Any]:
         cells = row.xpath("td")
         if len(cells) < 2:
             continue
+
         grade_cell = cells[5].text_content().strip()
         gpa_cell   = cells[9].text_content().strip()
         name       = cells[3].text_content().strip() if len(cells) > 3 else ""
@@ -81,34 +104,51 @@ def suan(html: str) -> Dict[str, Any]:
         except Exception:
             grade, gpa = 0, 0.0
 
-        courses.append({"course_name": name, "grade": grade, "gpa": gpa})
+        courses.append({
+            "course_name": name,
+            "grade": grade,
+            "gpa": gpa
+        })
 
     avg_gpa = sum(c["gpa"] for c in courses) / len(courses) if courses else 0
-    return {"courses": courses, "average_gpa": round(avg_gpa, 2)}
+    return {
+        "courses": courses,
+        "average_gpa": round(avg_gpa, 2)
+    }
 
 
 def a() -> Dict[str, Any]:
     """主抓取逻辑"""
     url = "http://zhjw.qfnu.edu.cn/jsxsd/kscj/cjcx_list"
     payload = {
-        "kksj": "2025-2026-1",  # 想抓全部可改成 ""
+        "kksj": "2025-2026-1",
         "kcxz": "",
         "kcmc": "",
         "xsfs": "all"
     }
+
+    print("🔐 正在登录教务系统 ...")
     session = jwxtdl.deng(STU_ID, STU_PWD)
+
+    print("🌐 正在抓取成绩页面 ...")
     resp = session.post(url, data=payload)
+
     if "未查询到数据" in resp.text:
         print("❌ 未查询到成绩")
         return {}
+
+    print("📑 正在解析成绩数据 ...")
     result = suan(resp.text)
 
-    # 增量对比：先比较，有变化再落盘
+    print("🔍 正在对比历史成绩 ...")
     old = load_last()
+
     if diff_and_notify(old, result):
         save_current(result)
+        print("💾 成绩有变化，已保存")
     else:
-        print("暂无新成绩，不落盘。")
+        print("💤 成绩无变化，不落盘")
+
     return result
 
 
