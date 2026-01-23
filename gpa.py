@@ -40,7 +40,6 @@ def get_beijing_time():
     
 
 def diff_and_notify(old: Dict[str, Any], new: Dict[str, Any]) -> bool:
-   
     old_map = {c["course_name"]: c for c in old.get("courses", [])}
     changed_blocks = []
     
@@ -58,24 +57,28 @@ def diff_and_notify(old: Dict[str, Any], new: Dict[str, Any]) -> bool:
         print("ℹ️ 暂无新成绩，不推送通知")
         return False
     
-   
+    # 使用双换行符分隔不同的成绩条目
+    grade_content = "\n\n".join(changed_blocks)
+    
     now_time = get_beijing_time().strftime("%Y-%m-%d %H:%M")
     
+    # 重新组织消息结构
     lines = [
         "## 🚀 成绩更新提醒",
         "",
         "✨ **检测到新的成绩发布：**", 
         "",
-        *changed_blocks,
+        grade_content,  # 这里会包含成绩条目，条目之间用双换行分隔
         "",
         "──────────────",
         f"📊 **当前平均绩点：{new.get('average_gpa', 0)}**",
-        f"🕒 检测时间：{now_time}（北京时间）",  # 添加时区说明
+        f"🕒 检测时间：{now_time}（北京时间）",
     ]
     
     send_md("成绩更新", "\n".join(lines))
     print("✅ 已推送钉钉通知")
     return True
+
 
 # ---------- 业务 ---------- 
 def suan(html: str) -> Dict[str, Any]:
