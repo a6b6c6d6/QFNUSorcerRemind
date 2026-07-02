@@ -119,7 +119,7 @@ def a() -> Dict[str, Any]:
     """主抓取逻辑"""
     url = "http://zhjw.qfnu.edu.cn/jsxsd/kscj/cjcx_list"  # 补充URL
     payload = {
-        "kksj": "2025-2026-1",
+        "kksj": "",
         "kcxz": "", 
         "kcmc": "",
         "xsfs": "all"
