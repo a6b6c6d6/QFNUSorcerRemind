@@ -2,7 +2,7 @@ name: 成绩监控
 
 on:
   schedule:
-    - cron: "0 * * * *"     # 1h运行一次
+    - cron: "0 23,0-17 * * *"  
   workflow_dispatch:
 
 jobs:
